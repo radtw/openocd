@@ -624,7 +624,9 @@ int target_resume(struct target *target, int current, target_addr_t address,
 		int handle_breakpoints, int debug_execution)
 {
 	int retval;
-
+#if TSAI
+	printf("TSAI: target_resume @%s\n", __FILE__);
+#endif
 	/* We can't poll until after examine */
 	if (!target_was_examined(target)) {
 		LOG_ERROR("Target not examined yet");

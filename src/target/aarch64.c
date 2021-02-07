@@ -134,7 +134,9 @@ static int aarch64_mmu_modify(struct target *target, int enable)
 	struct armv8_common *armv8 = &aarch64->armv8_common;
 	int retval = ERROR_OK;
 	uint32_t instr = 0;
-
+#if TSAI
+	LOG_DEBUG("TSAI:aarch64_mmu_modify core mode=%s ", armv8_mode_name(armv8->arm.core_mode));
+#endif
 	if (enable) {
 		/*	if mmu enabled at target stop and mmu not enable */
 		if (!(aarch64->system_control_reg & 0x1U)) {
@@ -184,9 +186,20 @@ static int aarch64_mmu_modify(struct target *target, int enable)
 		LOG_DEBUG("unknown cpu state 0x%x", armv8->arm.core_mode);
 		break;
 	}
-
+#if TSAI /* TODO: switch to EL1 if it's currently EL0*/
+	if (armv8->arm.core_mode == ARMV8_64_EL0T) {
+		LOG_DEBUG("TSAI:switch to EL1 to manipulate MMU");
+		armv8_dpm_modeswitch(&armv8->dpm, ARMV8_64_EL1H);
+	}
+#endif
 	retval = armv8->dpm.instr_write_data_r0(&armv8->dpm, instr,
 				aarch64->system_control_reg_curr);
+#if TSAI /* restore to original mode */
+	if (armv8->arm.core_mode == ARMV8_64_EL0T) {
+		LOG_DEBUG("TSAI:switch back to EL0 done with MMU");
+		armv8_dpm_modeswitch(&armv8->dpm, ARM_MODE_ANY);
+	}
+#endif
 	return retval;
 }
 

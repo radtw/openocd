@@ -745,7 +745,9 @@ int armv8_dpm_read_current_registers(struct arm_dpm *dpm)
 	struct reg *r;
 	uint32_t cpsr;
 	int retval;
-
+#if TSAI
+	printf("TSAI: armv8_dpm_read_current_registers() @%s \n", __FILE__);
+#endif
 	retval = dpm->prepare(dpm);
 	if (retval != ERROR_OK)
 		return retval;
@@ -1300,6 +1302,12 @@ void armv8_dpm_report_wfar(struct arm_dpm *dpm, uint64_t addr)
 	dpm->wp_pc = addr;
 }
 
+#if TSAI
+/* armv8_dpm_handle_exception re-entering bug, avoid re-entering this function twice */
+static int tsai_armv8_dpm_handle_exception_entered = 0;
+
+#endif
+
 /*
  * Handle exceptions taken in debug state. This happens mostly for memory
  * accesses that violated a MMU policy. Taking an exception while in debug
@@ -1325,12 +1333,23 @@ void armv8_dpm_handle_exception(struct arm_dpm *dpm, bool do_restore)
 		{ ARMV8_PC, ARMV8_xPSR, ARMV8_ELR_EL3, ARMV8_ESR_EL3, ARMV8_SPSR_EL3 },
 	};
 
+#if TSAI
+	if (tsai_armv8_dpm_handle_exception_entered) {
+		return;
+	}
+	tsai_armv8_dpm_handle_exception_entered++;
+#endif
+
 	el = (dpm->dscr >> 8) & 3;
 
 	/* safety check, must not happen since EL0 cannot be a target for an exception */
 	if (el < SYSTEM_CUREL_EL1 || el > SYSTEM_CUREL_EL3) {
 		LOG_ERROR("%s: EL %i is invalid, DSCR corrupted?", __func__, el);
+#if TSAI
+		goto Leave;
+#else
 		return;
+#endif
 	}
 
 	/* Clear sticky error */
@@ -1358,6 +1377,11 @@ void armv8_dpm_handle_exception(struct arm_dpm *dpm, bool do_restore)
 
 	if (do_restore)
 		armv8_dpm_modeswitch(dpm, ARM_MODE_ANY);
+
+#if TSAI
+Leave:
+	tsai_armv8_dpm_handle_exception_entered--;
+#endif
 }
 
 /*----------------------------------------------------------------------*/

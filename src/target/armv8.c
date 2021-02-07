@@ -1501,7 +1501,9 @@ static int armv8_get_core_reg(struct reg *reg)
 	struct arm_reg *armv8_reg = reg->arch_info;
 	struct target *target = armv8_reg->target;
 	struct arm *arm = target_to_arm(target);
-
+#if 0 && TSAI
+	printf("TSAI:armv8_get_core_reg %s @%s %d\n", reg->name, __FILE__, __LINE__ );
+#endif
 	if (target->state != TARGET_HALTED)
 		return ERROR_TARGET_NOT_HALTED;
 
@@ -1619,7 +1621,9 @@ struct reg_cache *armv8_build_reg_cache(struct target *target)
 	struct arm_reg *arch_info = calloc(num_regs, sizeof(struct arm_reg));
 	struct reg_feature *feature;
 	int i;
-
+#if TSAI
+	printf("TSAI: armv8_build_reg_cache @%s\n", __FILE__);
+#endif
 	/* Build the process context cache */
 	cache->name = "Aarch64 registers";
 	cache->next = cache32;
@@ -1707,6 +1711,16 @@ struct reg *armv8_reg_current(struct arm *arm, unsigned regnum)
 		return NULL;
 
 	r = arm->core_cache->reg_list + regnum;
+#if 1 && TSAI /* deferred reading */
+	if (!r->valid) {
+		enum arm_mode mode = armv8_regs[regnum].mode;
+		if (mode == ARM_MODE_ANY || mode == arm->core_mode)
+			armv8_get_core_reg(r);
+		else {
+			printf("TSAI: %s cannot be read in %s @%s\n", r->name, armv8_mode_name(arm->core_mode), __func__);
+		}
+	}
+#endif
 	return r;
 }
 
@@ -1768,7 +1782,9 @@ int armv8_get_gdb_reg_list(struct target *target,
 {
 	struct arm *arm = target_to_arm(target);
 	int i;
-
+#if TSAI
+	printf("TSAI: armv8_get_gdb_reg_list %s\n", target->cmd_name);
+#endif
 	if (arm->core_state == ARM_STATE_AARCH64) {
 
 		LOG_DEBUG("Creating Aarch64 register list for target %s", target_name(target));
